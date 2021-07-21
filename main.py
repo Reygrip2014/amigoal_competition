@@ -24,13 +24,15 @@ class App:
 class Combination:
     """Combination object are the possible scenarios, possible combinations by the
      contenders > possible combinations of events"""
-    #  objects = []
+    objects = []
 
     def __init__(self, market_outcome, combination_list):
         self.market_outcome = market_outcome
         self.combination_list = combination_list
+        self.base_market_probabilities = base_market_outcomes  # from data file
         self.total_odds = None
-    #     Combination.objects.append(self)
+        self.match_combi_to_odds()
+        Combination.objects.append(self)
 
     def match_combi_to_odds(self):
         """
@@ -38,8 +40,10 @@ class Combination:
         :return:
         """
         conditional_proba_object = ConditionalProbabilities.objects[self.market_outcome]
+        base_market_outcome_probability = self.base_market_probabilities[self.market_outcome]
         probabilities = conditional_proba_object.conditional_probabilities_wo_label
         combi_odds = 1
+        combi_odds *= base_market_outcome_probability
         combi_to_odds = dict()
         for combi in self.combination_list:
             q_index = alphabet.index(combi[0])+1
@@ -48,16 +52,17 @@ class Combination:
             combi_odds *= single_odd
         combi_odds = round(combi_odds, 10)
         combi_to_odds[self.combination_list] = combi_odds
-        return combi_to_odds
+        self.total_odds = combi_to_odds
 
 
 class ConditionalProbabilities:
-    #    objects = {}
+    objects = {}
+
     def __init__(self, market_outcome, conditional_probabilities):
         self.conditional_probabilities = conditional_probabilities
         self.market_outcome = market_outcome
         self.combinations = []
-        #     ConditionalProbabilities.objects[index] = self
+        ConditionalProbabilities.objects[market_outcome] = self
         self.conditional_probabilities_wo_label = self.probas_wo_labels()
         self.create_combinations()
 
@@ -93,19 +98,18 @@ class LastRound:
         self.default_market = 'Qualification'
         self.base_market = None
         self.base_outcome = None
-        self.combination_objects = []
-        self.conditional_probabilities_objects = {}
 
     def calculate_conditional_probabilities(self):
         for outcome in self.dependence_ratios.keys():
             # print('\n\nFOR OUTCOME ' + str(outcome))
             event_nb, outcome_nb = outcome
-            self.calculate_proba_after_outcome(event_nb, outcome_nb)
+            probabilities = self.calculate_proba_after_outcome(event_nb, outcome_nb)
+            self.create_conditional_probabilities_objects(probabilities)
         return
 
     @staticmethod
-    def create_copy_dictionary(dic):
-        return copy.deepcopy(dic)
+    def create_copy_dictionary(dictionary):
+        return copy.deepcopy(dictionary)
 
     def calculate_proba_after_outcome(self, question_nb, outcome_nb):  # calculate conditional proba
         """
@@ -121,7 +125,7 @@ class LastRound:
                 self.base_outcome = outcome
         dependence_probabilities = self.dependence_ratios[(question_nb, outcome_nb)]  # getting the conditional
         # probabilities for given outcome in base market
-        self.adjust_probabilities(dependence_probabilities)
+        return self.adjust_probabilities(dependence_probabilities)
 
     def adjust_probabilities(self, dependence_probabilities):
         """
@@ -130,7 +134,8 @@ class LastRound:
         """
         # needs to use a dic copy as we don't
         # want to modify the original nested dic
-        del self.base_probas[self.base_market]
+        if self.base_market in self.base_probas:
+            del self.base_probas[self.base_market]
         for index, increase_factor in dependence_probabilities.items():
             question_, outcome = index
             question_outcome = {q: outcome_matching_proba for q, outcome_matching_proba in self.base_probas.items() if
@@ -138,7 +143,7 @@ class LastRound:
             outcome_odds = list(question_outcome.values())[0]  # unnecessary nested dic
             new_outcome_odds = {key: odds*(1+increase_factor) for key, odds in outcome_odds.items() if outcome in key}
             self.calibrate_odds(outcome_odds, new_outcome_odds)   # probas dic now holds correct odds
-        self.filter_nul_probabilities()
+        return self.filter_nul_probabilities()
 
     @staticmethod
     def calibrate_odds(outcome_dic, outcome_modify):
@@ -166,19 +171,11 @@ class LastRound:
                     del conditional_probas_filtered[a_][outcome]
         return conditional_probas_filtered
 
-    def create_conditional_probabilities_objects(self):
-        ci_object = ConditionalProbabilities(market_outcome, conditional_probas_filtered)
-        self.conditional_probabilities_objects[market_outcome] = ci_object
+    def create_conditional_probabilities_objects(self, conditional_probas_filtered):
+        ConditionalProbabilities(self.base_outcome, conditional_probas_filtered)
+        # self.conditional_probabilities_objects[self.base_outcome] = ci_object
         # chunk 3
-        return
 
-
-
-    def cool(self):
-        for a in Combination.objects:
-            if a.index not in combi_odds:
-                combi_odds[a.index] = {}
-            combi_odds[a.index].update(a.match_combi_to_odds())
 
 
 class Competition:
@@ -256,11 +253,11 @@ if __name__ == '__main__':
     competition = Competition(df_, users, standardized_probabilities)
     last_round = LastRound(standardized_probabilities, dependence_ratios)
     last_round.calculate_conditional_probabilities()
-    conditional_probabilities = last_round.conditional_probabilities_objects
-    print(conditional_probabilities)
-   # print(combi_odds[index][combi])
+    #  conditional_probabilities = last_round.conditional_probabilities_objects
+    #  print(conditional_probabilities)
+    # print(combi_odds[index][combi])
 
-    #app = App(users, df_, competition, last_round)
+     #app = App(users, df_, competition, last_round)
 
 
 # users_sorted_by_rank = competition.sorted_by_rank

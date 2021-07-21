@@ -14,6 +14,8 @@ independent_probabilities_ = {
                   10: {"Wembley": {'8': 1}}
                      }
 
+base_market = (1, "Qualification")
+
 
 standardized_probabilities = {}
 i = 0
@@ -26,6 +28,8 @@ for dic in independent_probabilities_.values():
             j += 1
             standardized_probabilities[(i, event)][(j, outcome_)] = probability_
 
+
+base_market_outcomes = standardized_probabilities[base_market]
 
 # estimation of dependence ratio between outcomes (1st question serves as basis)
 # shortcut we do not estimate every dependency (most often than not it's marginal)
