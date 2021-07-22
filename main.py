@@ -16,11 +16,15 @@ from data import *
 class App:
     """we are not evaluating the possibility that it could be good
      to mix some impossible results as an hedge"""
-    def __init__(self, combinations, users):
+    def __init__(self, combinations, conditional_probabilities, users):
         self.users = users
         self.combinations = combinations
         self.sorted_by_rank = None
         self.ordered_combinations = self.ordered_combination_dic()
+        self.conditional_probabilities = conditional_probabilities
+        self.expected_points_max()
+        #  print(self.ordered_combinations[40000].combination_list, self.ordered_combinations[40000].expected_points,
+        #  self.ordered_combinations[40000].total_odds)
 
     def sort_users_by_rank(self):
         self.sorted_by_rank = self.users.copy()
@@ -33,10 +37,16 @@ class App:
         return sorted(ordered_combinations.items(), key=lambda x: x[1], reverse=True)
 
     def expected_points_max(self):
-        """need to get proba of each single within the combi"""
-        for question, outcomes in self.independent_probabilities.items():
-            for outcome, probability in outcomes.items():
-                pass
+        for combination in self.ordered_combinations:
+            expected_points = 0
+            combi_object = combination[0]
+            market_outcome = combi_object.market_outcome
+            combination_list = combi_object.combination_list
+            probabilities = self.conditional_probabilities[market_outcome].conditional_probabilities_wo_label
+            for bet in combination_list:
+                single_odd = probabilities[bet]
+                expected_points += 10*single_odd
+            combi_object.expected_points = expected_points
 
 
 class Combination:
@@ -53,6 +63,7 @@ class Combination:
         self.single_odds = dict()
         self.match_combi_to_odds()
         self.labelled_combination_list = self.from_index_to_label()
+        self.expected_points = None
         Combination.objects.append(self)
 
     def match_combi_to_odds(self):
@@ -66,8 +77,7 @@ class Combination:
         combi_odds *= base_market_outcome_probability
         self.single_odds[self.market_outcome] = base_market_outcome_probability
         for combi in self.combination_list:
-            q_index = alphabet.index(combi[0])+1
-            index = q_index, combi[1]
+            index = combi[0], combi[1]
             single_odd = probabilities[index]
             self.single_odds[combi] = single_odd
             combi_odds *= single_odd
@@ -109,7 +119,8 @@ class ConditionalProbabilities:
         wo_labels = {}
         for q, outcome_dic in self.conditional_probabilities.items():
             for outcome, odds in outcome_dic.items():
-                tuple_odds = (q[0], outcome[0])
+                #print(alphabet,q)
+                tuple_odds = (alphabet[q[0]-1], outcome[0])
                 wo_labels[tuple_odds] = odds
         return wo_labels
 
@@ -128,6 +139,7 @@ class ConditionalProbabilities:
 
 class LastRound:
     def __init__(self, independent_probabilities, dependence_ratios):
+        self.base_probas = None
         self.independent_probabilities = independent_probabilities  # nested dictionary matching each questions to the
         # outcomes and the odds associated with them
         self.dependence_ratios = dependence_ratios  # nested dictionary matching outcome 1st question to dependence
@@ -216,12 +228,12 @@ class LastRound:
         # chunk 3
 
 
-
 class User:
     def __init__(self, points, username, ranking):
         self.points = points
         self.username = username
         self.ranking = ranking
+        self.randomness_close_odds = {0.2: 0.98, 0.5: 0.7, 0.85: 0.2, 1.2: 0.1, 2: 0}  # key: odds_difference
         self.true_randomness_funcs = {101: '0.05+(0.1*ranking-1)/100', 201: '0.15+(0.1*ranking-101)/100', 501: 0.25}
         self.bias_towards_expected_points = {101: '0.05+(0.15*ranking-1)/100', 501: 0.2}
         """iterate for each player the best strategy with some randomness associated with it 
@@ -236,13 +248,11 @@ class User:
         true_randomness = exec(randomness_func)
         return true_randomness
 
-    @staticmethod
-    def close_odds_randomness(cote_a, cote_b):
+    def close_odds_randomness(self, cote_a, cote_b):
         odds_difference = abs(cote_a - cote_b)
-        randomness_close_odds = {0.2: 0.98, 0.5: 0.7, 0.85: 0.2, 1.2: 0.1, 2: 0}  # key: odds_difference
         # value: randomness resulting on a wrong probability estimate (1 being the maximum)
-        index = bisect(randomness_close_odds.keys(), odds_difference)
-        close_odds_randomness = list(randomness_close_odds.values())[index]
+        index = bisect(self.randomness_close_odds.keys(), odds_difference)
+        close_odds_randomness = list(self.randomness_close_odds.values())[index]
         return close_odds_randomness
 
     def bias_expected_points(self):
@@ -275,7 +285,7 @@ if __name__ == '__main__':
         users.append(user)
     last_round = LastRound(standardized_probabilities, dependence_ratios)
     last_round.calculate_conditional_probabilities()
-    competition = App(Combination.objects, users)
+    competition = App(Combination.objects, ConditionalProbabilities.objects, users)
     #  conditional_probabilities = last_round.conditional_probabilities_objects
     #  print(conditional_probabilities)
     # print(combi_odds[index][combi])
