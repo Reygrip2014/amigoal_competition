@@ -28,15 +28,14 @@ for dic in independent_probabilities_.values():
             j += 1
             standardized_probabilities[(i, event)][(j, outcome_)] = probability_
 
-
 base_market_outcomes = standardized_probabilities[base_market]
 
 # estimation of dependence ratio between outcomes (1st question serves as basis)
 # shortcut we do not estimate every dependency (most often than not it's marginal)
 dependence_ratios = {
-    (1, 1): {(4, 2): 0.2, (6, 1): 0.85, (7, 3): -1, (7, 4): -1, (8, 1): -1},
+    (1, 1): {(4, 2): 0.2, (6, 1): 0.78, (7, 3): -1, (7, 4): -1, (8, 1): -1},
     (1, 2): {(6, 1): 0.33, (8, 1): -1}, (1, 3): {(7, 4): 8, (8, 2): -1, (8, 4): -1},
-    (1, 4): {(4, 1): 0.2, (6, 2): 0.85, (7, 3): -1, (7, 4): -1, (8, 1): -1},
+    (1, 4): {(4, 1): 0.2, (6, 2): 0.78, (7, 3): -1, (7, 4): -1, (8, 1): -1},
     (1, 5): {(6, 2): 0.33, (8, 1): -1}, (1, 6): {(7, 4): 8, (8, 2): -1, (8, 4): -1}
     }
 
