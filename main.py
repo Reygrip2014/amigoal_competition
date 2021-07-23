@@ -119,7 +119,6 @@ class ConditionalProbabilities:
         wo_labels = {}
         for q, outcome_dic in self.conditional_probabilities.items():
             for outcome, odds in outcome_dic.items():
-                #print(alphabet,q)
                 tuple_odds = (alphabet[q[0]-1], outcome[0])
                 wo_labels[tuple_odds] = odds
         return wo_labels
@@ -129,7 +128,6 @@ class ConditionalProbabilities:
 
         :return:
         """
-      #  print(self.probas_wo_labels())
         a_ = [[(alphabet[a_[0] - 1], c_[0]) for c_ in b_.keys()] for a_, b_ in self.conditional_probabilities.items()]
         #  a = ([('a', 0), ('a', 1)], [('b',0), ('b',1)])
         combinations = list(it.product(*a_))
@@ -233,34 +231,43 @@ class User:
         self.points = points
         self.username = username
         self.ranking = ranking
-        self.randomness_close_odds = {0.2: 0.98, 0.5: 0.7, 0.85: 0.2, 1.2: 0.1, 2: 0}  # key: odds_difference
-        self.true_randomness_funcs = {101: '0.05+(0.1*ranking-1)/100', 201: '0.15+(0.1*ranking-101)/100', 501: 0.25}
-        self.bias_towards_expected_points = {101: '0.05+(0.15*ranking-1)/100', 501: 0.2}
+        self.randomness = self.estimate_randomness()
+        self.bias_expected_points = self.bias_expected_points()
         """iterate for each player the best strategy with some randomness associated with it 
         and with bias towards more probable outcomes + a ratio of awareness.
         2 models: maximise expected points or maximise dollars"""
 
     def estimate_randomness(self):
-        index = bisect.bisect_right(list(self.true_randomness_funcs.keys()), self.ranking)
-        randomness_func = list(self.true_randomness_funcs.values())[index]
-        # noinspection PyUnusedLocal
-        ranking = self.ranking
-        true_randomness = exec(randomness_func)
-        return true_randomness
+        if self.ranking <= 100:
+            f = 0.05+(0.1*self.ranking-1)/100
+        elif 100 < self.ranking <= 200:
+            f = 0.15+(0.1*self.ranking-1)/100
+        else:
+            f = 0.25
+        return f
 
-    def close_odds_randomness(self, cote_a, cote_b):
+    @staticmethod
+    def close_odds_randomness(cote_a, cote_b):
         odds_difference = abs(cote_a - cote_b)
         # value: randomness resulting on a wrong probability estimate (1 being the maximum)
-        index = bisect(self.randomness_close_odds.keys(), odds_difference)
-        close_odds_randomness = list(self.randomness_close_odds.values())[index]
-        return close_odds_randomness
+        if odds_difference <= 0.2:
+            f = 0.98
+        elif odds_difference <= 0.5:
+            f = 0.7
+        elif odds_difference <= 0.85:
+            f = 0.2
+        elif odds_difference <= 1.2:
+            f = 0.1
+        else:
+            f = 0
+        return f
 
     def bias_expected_points(self):
-        index = bisect.bisect_right(self.bias_towards_expected_points.keys(), self.ranking)
-        bias_expected_points = list(self.bias_towards_expected_points.values())[index]
-        ranking = self.ranking
-        bias_expected_points = exec(bias_expected_points)
-        return bias_expected_points
+        if self.ranking <= 100:
+            f = 0.05+(0.15*self.ranking-1)/100
+        else:
+            f = 0.2
+        return f
 
     def bias_dependent_probabilities(self):
         pass
@@ -282,12 +289,13 @@ if __name__ == '__main__':
     users = []
     for row_n, row in df_.iterrows():
         user = User(row['username'], row['points'], row['ranking'])
+        print(user.ranking)
         users.append(user)
     last_round = LastRound(standardized_probabilities, dependence_ratios)
     last_round.calculate_conditional_probabilities()
     competition = App(Combination.objects, ConditionalProbabilities.objects, users)
-    #  conditional_probabilities = last_round.conditional_probabilities_objects
-    #  print(conditional_probabilities)
+    # conditional_probabilities = last_round.conditional_probabilities_objects
+    # print(conditional_probabilities)
     # print(combi_odds[index][combi])
 
      # app = App(users, df_, competition, last_round)
